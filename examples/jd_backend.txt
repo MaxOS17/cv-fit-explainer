@@ -1,0 +1,18 @@
+# Sample Job Description (Backend Engineer) — for tests and demos
+
+## Senior Backend Engineer — Remote (EU)
+
+We are looking for a Senior Backend Engineer to join our platform team.
+
+### Requirements
+- 5+ years of professional backend experience with Python
+- Experience building and operating REST APIs at scale
+- Strong SQL skills; PostgreSQL preferred
+- Docker and CI/CD pipelines in daily use
+- Bonus: Kubernetes, Terraform, cloud (AWS/GCP)
+- Fluent English; remote-first team across Europe
+
+### What you'll do
+- Design and ship services powering our core product
+- Own reliability: monitoring, alerting, incident response
+- Mentor mid-level engineers and drive code quality
