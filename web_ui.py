@@ -14,6 +14,45 @@ from cv_fit_explainer.analyzer import analyze_fit, FitReport
 from cv_fit_explainer.inputs import load_cv, load_jd, JobDescription
 from cv_fit_explainer.llm import LLMConfig
 
+PRESETS = {
+    "lmstudio": {
+        "base_url": "http://localhost:1234/v1",
+        "api_key": "not-needed",
+        "model": "local-model",
+    },
+    "gateway": {
+        "base_url": "http://localhost:8080/v1",
+        "api_key": "not-needed",
+        "model": "local-model",
+    },
+    "openai": {
+        "base_url": "https://api.openai.com/v1",
+        "api_key": "",
+        "model": "gpt-4o-mini",
+    },
+}
+
+
+def _llm_from_form(form) -> LLMConfig:
+    provider = form.get("provider", "lmstudio")
+    model = form.get("model", "").strip()
+    base_url = form.get("base_url", "").strip()
+    api_key = form.get("api_key", "").strip() or "not-needed"
+
+    if provider == "custom":
+        if not base_url or not model:
+            raise ValueError("Custom provider requires both base URL and model name.")
+        return LLMConfig(base_url=base_url, api_key=api_key, model=model)
+
+    preset = PRESETS.get(provider, PRESETS["lmstudio"])
+    if not model:
+        model = preset["model"]
+    return LLMConfig(
+        base_url=base_url or preset["base_url"],
+        api_key=api_key or preset["api_key"],
+        model=model,
+    )
+
 TEMPLATE = """<!doctype html>
 <html lang="en">
 <head>
@@ -44,7 +83,7 @@ TEMPLATE = """<!doctype html>
 <body>
 <header>
   <h1>CV Fit Analysis</h1>
-  <span class="pill">local model</span>
+  <span id="pill" class="pill">local model</span>
 </header>
 <main>
   <div class="panel">
@@ -62,6 +101,29 @@ TEMPLATE = """<!doctype html>
       <label for="jdtext">Or paste full JD text here</label>
       <textarea id="jdtext" placeholder="Paste the job description text here…"></textarea>
     </div>
+    <div style="margin-top:10px; display:grid; grid-template-columns: 1fr 1fr 1fr auto; gap:10px; align-items:end;">
+      <div>
+        <label for="provider">Provider</label>
+        <select id="provider">
+          <option value="lmstudio">LM Studio (local)</option>
+          <option value="gateway">AI Model Gateway</option>
+          <option value="openai">OpenAI</option>
+          <option value="custom">Custom…</option>
+        </select>
+      </div>
+      <div>
+        <label for="model">Model</label>
+        <input id="model" type="text" value="local-model" placeholder="Model name" />
+      </div>
+      <div id="custom_url_group" style="display:none">
+        <label for="base_url">Base URL</label>
+        <input id="base_url" type="text" value="http://localhost:1234/v1" placeholder="https://..." />
+      </div>
+      <div>
+        <label for="api_key">API key</label>
+        <input id="api_key" type="text" value="not-needed" placeholder="Optional" />
+      </div>
+    </div>
     <div style="margin-top:10px; display:flex; gap:10px; align-items:center;">
       <button id="run" onclick="run()">Run analysis</button>
       <span id="status" class="result" style="color:var(--muted)"></span>
@@ -70,6 +132,38 @@ TEMPLATE = """<!doctype html>
   <div id="out" class="panel result" style="display:none"></div>
 </main>
 <script>
+  const STORAGE_KEY = 'cvfit-provider-config';
+  const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+  const providerEl = document.getElementById('provider');
+  const modelEl = document.getElementById('model');
+  const baseUrlEl = document.getElementById('base_url');
+  const apiKeyEl = document.getElementById('api_key');
+  const customUrlGroup = document.getElementById('custom_url_group');
+  const pill = document.getElementById('pill');
+
+  function applySaved() {
+    providerEl.value = saved.provider || 'lmstudio';
+    modelEl.value = saved.model || 'local-model';
+    baseUrlEl.value = saved.base_url || 'http://localhost:1234/v1';
+    apiKeyEl.value = saved.api_key || 'not-needed';
+    customUrlGroup.style.display = providerEl.value === 'custom' ? 'block' : 'none';
+    updatePill();
+  }
+
+  function updatePill() {
+    const p = providerEl.value;
+    const map = { lmstudio: 'LM Studio', gateway: 'Gateway', openai: 'OpenAI', custom: 'Custom' };
+    pill.textContent = (map[p] || p) + ' · ' + (modelEl.value.trim() || '—');
+  }
+
+  providerEl.addEventListener('change', () => {
+    customUrlGroup.style.display = providerEl.value === 'custom' ? 'block' : 'none';
+    updatePill();
+  });
+  modelEl.addEventListener('input', updatePill);
+
+  applySaved();
+
   async function run() {
     const out = document.getElementById('out');
     const status = document.getElementById('status');
@@ -77,10 +171,20 @@ TEMPLATE = """<!doctype html>
     const cv = document.getElementById('cv').value.trim();
     const jd = document.getElementById('jd').value.trim();
     const jdtext = document.getElementById('jdtext').value.trim();
+    const provider = providerEl.value;
+    const model = modelEl.value.trim();
+    const base_url = baseUrlEl.value.trim();
+    const api_key = apiKeyEl.value.trim();
     if (!cv || (!jd && !jdtext)) {
       status.textContent = 'Provide a JD URL or paste JD text.';
       return;
     }
+    if (!model) {
+      status.textContent = 'Provide a model name.';
+      return;
+    }
+    const config = { provider, model, base_url, api_key };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
     btn.disabled = true;
     out.style.display = 'none';
     status.textContent = 'Running…';
@@ -89,6 +193,10 @@ TEMPLATE = """<!doctype html>
       form.append('cv', cv);
       form.append('jd', jd);
       form.append('jdtext', jdtext);
+      form.append('provider', provider);
+      form.append('model', model);
+      form.append('base_url', base_url);
+      form.append('api_key', api_key);
       const r = await fetch('/api/analyze', { method: 'POST', body: form });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || 'Request failed');
@@ -143,11 +251,7 @@ def create_app() -> Flask:
 
         # Run analysis
         try:
-            llm = LLMConfig(
-                base_url=os.environ.get("CVFIT_BASE_URL", "http://127.0.0.1:1234/v1"),
-                api_key=os.environ.get("CVFIT_API_KEY", "not-needed"),
-                model=os.environ.get("CVFIT_MODEL", "local-model"),
-            )
+            llm = _llm_from_form(request.form)
             report = analyze_fit(cv_text, jd_final, llm)
         except Exception as e:
             return jsonify(error=f"Analysis failed: {e}"), 500
