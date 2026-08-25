@@ -22,7 +22,7 @@ objects).
 ## Architecture
 
 ```
-CV (pdf/docx/md/txt) ──► loader ─┐
+CV (pdf/docx/md/txt) ──► loader ┐
                                  ├─► LLM (OpenAI-compatible endpoint)
 JD (text or URL) ──► fetcher ────┘        │
                                           ▼
@@ -45,7 +45,7 @@ pip install -e .
 export CVFIT_BASE_URL=http://127.0.0.1:8000/v1   # your OpenAI-compatible endpoint
 export CVFIT_MODEL=your-model-name
 
-cv-fit-explainer --cv my_cv.pdf --jd "Senior Python engineer... (paste text)" 
+cv-fit-explainer --cv my_cv.pdf --jd "Senior Python engineer... (paste text)"
 cv-fit-explainer --cv my_cv.pdf --jd https://jobs.example.com/123 --json > report.json
 ```
 
@@ -70,6 +70,13 @@ cv-fit-explainer --cv my_cv.pdf --jd https://jobs.example.com/123 --json > repor
 pip install -e ".[dev]"
 pytest
 ```
+
+## Related projects
+
+Part of the AI Engineering Track portfolio:
+- [ai-model-gateway](https://github.com/MaxOS17/ai-model-gateway) — OpenAI-compatible model gateway with eval harness
+- [cl-evaluator](https://github.com/MaxOS17/cl-evaluator) — RAG cover-letter drafting + rubric evaluation
+- [omnijob](https://github.com/MaxOS17/omnijob) — job aggregator with AI scoring + cover-letter generation
 
 ## License
 
