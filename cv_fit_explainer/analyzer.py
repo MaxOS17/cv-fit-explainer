@@ -35,6 +35,11 @@ class FitReport:
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
+    @property
+    def markdown(self) -> str:
+        from .report import render_report
+        return render_report(self)
+
 
 def analyze_fit(cv_text: str, jd: JobDescription, config: LLMConfig | None = None) -> FitReport:
     """Analyze how well a CV fits a job description."""
